@@ -166,19 +166,19 @@ async fn main() {
 
 ## CI/CD Pipeline
 
-This project uses GitLab CI/CD for automated testing and quality checks. The pipeline runs on every merge request and main branch commit.
+This project uses GitHub Actions for automated testing and quality checks. The workflow runs on every pull request and push to main.
 
-### Pipeline
+### Workflow
 
-The pipeline runs a single job that executes `make ci`, which includes:
+The CI workflow runs a single job that executes `make ci`, which includes:
 - ✅ Code formatting check (`cargo fmt`)
 - ✅ Linting with strict rules (`cargo clippy`)
 - ✅ All tests
 - ✅ Compilation check (`cargo check`)
 
-### Merge Requirements
+### Pull Request Requirements
 
-All merge requests must pass the CI pipeline, which enforces:
+All pull requests must pass the CI workflow, which enforces:
 - ✅ All tests passing
 - ✅ Code formatting check
 - ✅ Clippy linting with strict rules (no warnings, unwraps, or panics)
