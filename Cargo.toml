@@ -24,6 +24,9 @@ config = "0.13"
 tokio-test = "0.4"
 criterion = "0.5"
 
+[target.'cfg(unix)'.dev-dependencies]
+nix = { version = "0.27", features = ["signal"] }
+
 [[bin]]
 name = "task-queue-rs"
 path = "src/main.rs"

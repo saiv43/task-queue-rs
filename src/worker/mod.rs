@@ -60,4 +60,52 @@ impl Worker {
             }
         }
     }
+
+    /// Start processing tasks with graceful shutdown support
+    pub async fn run_with_shutdown<Q: Queue + 'static>(
+        &self,
+        queue: Arc<Q>,
+        mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
+    ) {
+        info!("Worker {} started", self.id);
+
+        loop {
+            tokio::select! {
+                // Check for shutdown signal
+                _ = shutdown_rx.recv() => {
+                    info!("Worker {} received shutdown signal", self.id);
+                    break;
+                }
+                // Process tasks
+                result = queue.dequeue() => {
+                    match result {
+                        Ok(mut task) => {
+                            info!("Worker {} processing task {}", self.id, task.id);
+
+                            match self.executor.execute(&mut task).await {
+                                Ok(()) => {
+                                    info!("Worker {} completed task {}", self.id, task.id);
+                                    if let Err(e) = queue.update(task).await {
+                                        error!("Failed to update task: {}", e);
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Worker {} failed to execute task: {}", self.id, e);
+                                    if let Err(e) = queue.update(task).await {
+                                        error!("Failed to update failed task: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Queue is empty, wait before checking again
+                            sleep(Duration::from_millis(100)).await;
+                        }
+                    }
+                }
+            }
+        }
+
+        info!("Worker {} stopped", self.id);
+    }
 }
