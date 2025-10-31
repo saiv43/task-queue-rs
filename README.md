@@ -163,3 +163,64 @@ async fn main() {
 - [ ] Web dashboard
 - [ ] Docker support
 - [ ] Clustering support
+
+## CI/CD Pipeline
+
+This project uses GitLab CI/CD for automated testing and quality checks. The pipeline runs on every merge request and main branch commit.
+
+### Pipeline
+
+The pipeline runs a single job that executes `make ci`, which includes:
+- ✅ Code formatting check (`cargo fmt`)
+- ✅ Linting with strict rules (`cargo clippy`)
+- ✅ All tests
+- ✅ Compilation check (`cargo check`)
+
+### Merge Requirements
+
+All merge requests must pass the CI pipeline, which enforces:
+- ✅ All tests passing
+- ✅ Code formatting check
+- ✅ Clippy linting with strict rules (no warnings, unwraps, or panics)
+- ✅ All public items documented
+
+### Running CI Checks Locally
+
+Before pushing, run the same checks locally:
+
+```bash
+# Run all CI checks
+make ci
+
+# Or run individually
+cargo check --all-targets
+cargo test --verbose
+cargo fmt -- --check
+cargo clippy -- -D warnings -D clippy::unwrap_used -D clippy::panic -D missing_docs
+```
+
+## Development
+
+### Code Quality Standards
+
+- **No panics**: Use `Result` types and proper error handling
+- **No unwraps**: Handle errors explicitly
+- **Documentation**: All public APIs must be documented
+- **Testing**: All features must have tests
+- **Formatting**: Code must be formatted with `rustfmt`
+
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific test file
+cargo test --test shutdown_test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run tests in watch mode (requires cargo-watch)
+cargo watch -x test
+```
