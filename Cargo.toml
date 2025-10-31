@@ -1,0 +1,38 @@
+[package]
+name = "task-queue-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Vipul <saifunny43@gmail.com>"]
+description = "A distributed task queue system written in Rust"
+repository = "https://github.com/vipul43/task-queue-rs"
+keywords = ["task", "queue", "distributed", "async", "worker"]
+categories = ["asynchronous", "concurrency"]
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+config = "0.13"
+
+[dev-dependencies]
+tokio-test = "0.4"
+criterion = "0.5"
+
+[[bin]]
+name = "task-queue-rs"
+path = "src/main.rs"
+
+[lib]
+name = "task_queue_rs"
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  task-queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task-queue-rs
+    environment:
+      - RUST_LOG=info
+      - WORKER_COUNT=4
+    restart: unless-stopped
+    networks:
+      - task-queue-network
+
+networks:
+  task-queue-network:
+    driver: bridge

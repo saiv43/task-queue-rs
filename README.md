@@ -1,0 +1,165 @@
+# Task Queue RS
+
+A high-performance distributed task queue system written in Rust.
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/task-queue-rs.git
+cd task-queue-rs
+
+# Run with Make
+make run
+
+# Or run with Cargo
+cargo run
+
+# Run tests
+make test
+
+# Run with Docker
+make docker-build
+make docker-run
+```
+
+## Features
+
+- **Asynchronous Processing**: Built on Tokio for efficient async task execution
+- **In-Memory Queue**: Fast in-memory task queue (base implementation)
+- **Worker Pool**: Configurable worker pool for concurrent task processing
+- **Task Persistence**: Pluggable storage backends
+- **Type-Safe**: Leverages Rust's type system for safe task handling
+- **Extensible**: Easy to add new storage backends and task types
+
+## Getting Started
+
+### Prerequisites
+
+- Rust
+- Cargo
+- Docker
+
+### Installation
+
+```bash
+# Using Cargo
+cargo build --release
+
+# Or using Make
+make build
+```
+
+### Running
+
+```bash
+# Using Cargo
+cargo run
+
+# Or using Make
+make run
+
+# Development mode with debug logs
+make dev
+```
+
+### Running Tests
+
+```bash
+# Using Cargo
+cargo test
+
+# Or using Make
+make test
+
+# Verbose test output
+make test-verbose
+```
+
+### Using Make
+
+The project includes a Makefile for common tasks:
+
+```bash
+# Show all available commands
+make help
+
+# Development
+make build          # Build the project
+make run            # Run the application
+make test           # Run tests
+make fmt            # Format code
+make lint           # Run clippy
+
+# Production
+make release        # Build optimized binary
+make install        # Install binary
+
+# Docker
+make docker-build   # Build Docker image
+make docker-run     # Run in Docker
+```
+
+### Docker
+
+Build and run with Docker:
+
+```bash
+# Build Docker image
+docker build -t task-queue-rs .
+
+# Run container
+docker run --rm task-queue-rs
+
+# Or use Make
+make docker-build
+make docker-run
+
+# Using Docker Compose
+docker-compose up --build
+```
+
+## Architecture
+
+The system consists of several core components:
+
+- **Queue**: Manages task storage and retrieval
+- **Worker Pool**: Executes tasks concurrently
+- **Task Executor**: Handles individual task execution
+- **Storage Backend**: Pluggable persistence layer
+
+## Usage Example
+
+```rust
+use task_queue_rs::{Queue, Task, WorkerPool};
+
+#[tokio::main]
+async fn main() {
+    let queue = Queue::new();
+    let worker_pool = WorkerPool::new(4);
+    
+    // Enqueue a task
+    let task = Task::new("example_task", serde_json::json!({"key": "value"}));
+    queue.enqueue(task).await.unwrap();
+    
+    // Start processing
+    worker_pool.start(queue).await;
+}
+```
+
+## Roadmap
+
+- [ ] Redis backend support
+- [ ] PostgreSQL backend support
+- [ ] Priority queue implementation
+- [ ] Scheduled/delayed tasks
+- [ ] Task retry mechanism
+- [ ] Dead letter queue
+- [ ] Metrics and monitoring
+- [ ] REST API
+- [ ] gRPC support
+- [ ] Task dependencies
+- [ ] Rate limiting
+- [ ] Web dashboard
+- [ ] Docker support
+- [ ] Clustering support
