@@ -55,9 +55,12 @@ impl Queue for MemoryQueue {
 
     async fn dequeue(&self) -> crate::Result<Task> {
         let mut tasks = self.tasks.write().await;
+        let mut task_map = self.task_map.write().await;
 
         match tasks.pop_front() {
             Some(task) => {
+                // Remove from task_map to prevent memory leak
+                task_map.remove(&task.id);
                 debug!("Task {} dequeued", task.id);
                 Ok(task)
             }
