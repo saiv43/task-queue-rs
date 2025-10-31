@@ -143,20 +143,21 @@ async fn test_sigterm_triggers_graceful_shutdown() {
     {
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
-        
+
         let result = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
         assert!(result.is_ok(), "Failed to send SIGTERM");
     }
 
     // Wait for graceful shutdown with timeout
-    let shutdown_result = tokio::time::timeout(
-        Duration::from_secs(5),
-        async {
-            child.wait().expect("Failed to wait for child process")
-        }
-    ).await;
+    let shutdown_result = tokio::time::timeout(Duration::from_secs(5), async {
+        child.wait().expect("Failed to wait for child process")
+    })
+    .await;
 
-    assert!(shutdown_result.is_ok(), "Application did not shutdown within timeout");
+    assert!(
+        shutdown_result.is_ok(),
+        "Application did not shutdown within timeout"
+    );
     let status = shutdown_result.unwrap();
     // On Unix, when terminated by signal, exit code is None or the process exits cleanly with 0
     // We just verify it shut down within the timeout period
@@ -191,20 +192,21 @@ async fn test_sigint_triggers_graceful_shutdown() {
     {
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
-        
+
         let result = kill(Pid::from_raw(pid as i32), Signal::SIGINT);
         assert!(result.is_ok(), "Failed to send SIGINT");
     }
 
     // Wait for graceful shutdown with timeout
-    let shutdown_result = tokio::time::timeout(
-        Duration::from_secs(5),
-        async {
-            child.wait().expect("Failed to wait for child process")
-        }
-    ).await;
+    let shutdown_result = tokio::time::timeout(Duration::from_secs(5), async {
+        child.wait().expect("Failed to wait for child process")
+    })
+    .await;
 
-    assert!(shutdown_result.is_ok(), "Application did not shutdown within timeout");
+    assert!(
+        shutdown_result.is_ok(),
+        "Application did not shutdown within timeout"
+    );
     let status = shutdown_result.unwrap();
     // On Unix, when terminated by signal, exit code is None or the process exits cleanly with 0
     // We just verify it shut down within the timeout period
@@ -239,7 +241,7 @@ async fn test_signal_shutdown_with_active_tasks() {
     {
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
-        
+
         let result = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
         assert!(result.is_ok(), "Failed to send SIGTERM");
     }
@@ -247,12 +249,14 @@ async fn test_signal_shutdown_with_active_tasks() {
     // Wait for graceful shutdown - should complete within configured timeout
     let shutdown_result = tokio::time::timeout(
         Duration::from_secs(35), // Slightly more than default 30s shutdown timeout
-        async {
-            child.wait().expect("Failed to wait for child process")
-        }
-    ).await;
+        async { child.wait().expect("Failed to wait for child process") },
+    )
+    .await;
 
-    assert!(shutdown_result.is_ok(), "Application did not shutdown within expected time");
+    assert!(
+        shutdown_result.is_ok(),
+        "Application did not shutdown within expected time"
+    );
     let status = shutdown_result.unwrap();
     // On Unix, when terminated by signal, exit code is None or the process exits cleanly with 0
     // We just verify it shut down within the timeout period
