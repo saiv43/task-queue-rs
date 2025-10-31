@@ -138,6 +138,70 @@ The system consists of several core components:
 - **Task Executor**: Handles individual task execution
 - **Storage Backend**: Pluggable persistence layer
 
+## Configuration
+
+The task queue can be configured using:
+1. Configuration files (YAML or TOML)
+2. Environment variables
+3. Default values
+
+### Configuration File
+
+Create a `config.yaml` or `config.toml` file:
+
+```yaml
+# config.yaml
+worker_count: 8
+max_queue_size: 50000
+task_timeout_secs: 600
+max_retries: 5
+storage_backend: "memory"
+enable_persistence: false
+shutdown_timeout_secs: 60
+```
+
+```toml
+# config.toml
+worker_count = 8
+max_queue_size = 50000
+task_timeout_secs = 600
+max_retries = 5
+storage_backend = "memory"
+enable_persistence = false
+shutdown_timeout_secs = 60
+```
+
+### Environment Variables
+
+Override configuration with environment variables:
+
+```bash
+export TASK_QUEUE_WORKER_COUNT=16
+export TASK_QUEUE_MAX_QUEUE_SIZE=100000
+export TASK_QUEUE_STORAGE_BACKEND=redis
+cargo run
+```
+
+### Configuration Priority
+
+1. Environment variable `TASK_QUEUE_CONFIG` (path to config file)
+2. `./config.yaml` or `./config.toml`
+3. `./config/config.yaml` or `./config/config.toml`
+4. Environment variables (`TASK_QUEUE_*`)
+5. Default values
+
+### Available Settings
+
+| Setting | Environment Variable | Default | Description |
+|---------|---------------------|---------|-------------|
+| `worker_count` | `TASK_QUEUE_WORKER_COUNT` | CPU count | Number of worker threads |
+| `max_queue_size` | `TASK_QUEUE_MAX_QUEUE_SIZE` | 10000 | Maximum tasks in queue |
+| `task_timeout_secs` | `TASK_QUEUE_TASK_TIMEOUT_SECS` | 300 | Task execution timeout |
+| `max_retries` | `TASK_QUEUE_MAX_RETRIES` | 3 | Max retry attempts |
+| `storage_backend` | `TASK_QUEUE_STORAGE_BACKEND` | memory | Storage backend type |
+| `enable_persistence` | `TASK_QUEUE_ENABLE_PERSISTENCE` | false | Enable persistence |
+| `shutdown_timeout_secs` | `TASK_QUEUE_SHUTDOWN_TIMEOUT_SECS` | 30 | Graceful shutdown timeout |
+
 ## Usage Example
 
 ```rust
@@ -153,9 +217,7 @@ async fn main() {
     queue.enqueue(task).await.unwrap();
     
     // Start processing
-    worker_pool.start(queue).await;
-}
-```
+  
 
 ## Roadmap
 

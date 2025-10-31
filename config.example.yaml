@@ -1,0 +1,7 @@
+worker_count: 8
+max_queue_size: 50000
+task_timeout_secs: 600
+max_retries: 5
+storage_backend: "memory"
+enable_persistence: false
+shutdown_timeout_secs: 60
