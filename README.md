@@ -28,6 +28,7 @@ make docker-run
 - **Asynchronous Processing**: Built on Tokio for efficient async task execution
 - **In-Memory Queue**: Fast in-memory task queue (base implementation)
 - **Worker Pool**: Configurable worker pool for concurrent task processing
+- **Graceful Shutdown**: Signal handling (SIGTERM/SIGINT) with configurable timeout
 - **Task Persistence**: Pluggable storage backends
 - **Type-Safe**: Leverages Rust's type system for safe task handling
 - **Extensible**: Easy to add new storage backends and task types
@@ -62,6 +63,15 @@ make run
 # Development mode with debug logs
 make dev
 ```
+
+The service will start and wait for tasks. To stop gracefully, press `CTRL+C` or send SIGTERM:
+
+```bash
+# Graceful shutdown
+kill -SIGTERM <pid>
+```
+
+The service will complete in-flight tasks before shutting down (default timeout: 30 seconds).
 
 ### Running Tests
 

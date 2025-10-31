@@ -22,6 +22,9 @@ pub struct Config {
 
     /// Enable task persistence
     pub enable_persistence: bool,
+
+    /// Graceful shutdown timeout in seconds
+    pub shutdown_timeout_secs: u64,
 }
 
 /// Storage backend types supported by the task queue
@@ -44,6 +47,7 @@ impl Default for Config {
             max_retries: 3,
             storage_backend: StorageBackend::Memory,
             enable_persistence: false,
+            shutdown_timeout_secs: 30,
         }
     }
 }
