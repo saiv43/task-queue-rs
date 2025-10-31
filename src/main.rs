@@ -16,11 +16,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting Task Queue RS");
 
-    // Load configuration
-    let config = Config::default();
-    config
-        .validate()
-        .map_err(|e| format!("Configuration error: {}", e))?;
+    // Load configuration from file, environment, or defaults
+    let config = Config::load().map_err(|e| format!("Configuration error: {}", e))?;
 
     info!(
         "Initialized with {} workers, max queue size: {}, shutdown timeout: {}s",
