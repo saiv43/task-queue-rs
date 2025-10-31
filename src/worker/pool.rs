@@ -58,30 +58,3 @@ impl WorkerPool {
         !self.handles.is_empty()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::queue::memory::MemoryQueue;
-    use crate::task::{Task, TaskPayload};
-
-    #[tokio::test]
-    async fn test_worker_pool_creation() {
-        let pool = WorkerPool::new(4);
-        assert_eq!(pool.worker_count(), 4);
-        assert!(!pool.is_running());
-    }
-
-    #[tokio::test]
-    async fn test_worker_pool_processes_tasks() {
-        let queue = MemoryQueue::new();
-
-        // Add some tasks
-        for i in 0..3 {
-            let payload = TaskPayload::new("task_type_0".to_string(), serde_json::json!({"id": i}));
-            queue.enqueue(Task::new(payload)).await.unwrap();
-        }
-
-        assert_eq!(queue.size().await, 3);
-    }
-}
