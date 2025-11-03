@@ -32,6 +32,7 @@ make docker-run
 - **Graceful Shutdown**: Signal handling (SIGTERM/SIGINT) with configurable timeout
 - **Configuration Files**: Load settings from YAML/TOML files or environment variables
 - **Task Persistence**: Pluggable storage backends
+- **Thread-Safe**: Race condition-free concurrent operations with atomic lock management
 - **Type-Safe**: Leverages Rust's type system for safe task handling
 - **Extensible**: Easy to add new storage backends and task types
 
@@ -253,15 +254,41 @@ queue.enqueue(urgent).await.unwrap();
 - **Normal** - Default priority for most tasks
 - **Low** - Background jobs, cleanup, maintenance
 
+## Concurrency Safety
+
+The task queue is designed to be thread-safe and race condition-free:
+
+- **Atomic Operations**: All queue operations (enqueue/dequeue) acquire necessary locks atomically
+- **Consistency Guarantees**: The internal priority heap and task map are kept synchronized
+- **No Duplicate Processing**: Each task is guaranteed to be dequeued exactly once
+- **High Concurrency**: Tested under high contention with multiple concurrent workers
+- **Lock Ordering**: Consistent lock acquisition order prevents deadlocks
+
+### Concurrency Testing
+
+The codebase includes comprehensive concurrency tests:
+- Concurrent dequeue operations with duplicate detection
+- Task map consistency verification under load
+- High contention stress tests with 20+ workers
+- Mixed concurrent enqueue/dequeue operations
+- Internal consistency verification
+
 ## Roadmap
 
+### Completed ✅
+- [x] **Priority queue implementation** - Support for Low, Normal, High, Critical priorities
+- [x] **Graceful shutdown** - Signal handling with configurable timeout
+- [x] **Configuration files** - YAML/TOML config with environment variable overrides
+- [x] **Memory leak fixes** - Proper cleanup in MemoryQueue
+- [x] **Race condition fixes** - Thread-safe concurrent operations
+
+### Planned 🚧
 - [ ] Redis backend support
 - [ ] PostgreSQL backend support
-- [ ] Priority queue implementation
 - [ ] Scheduled/delayed tasks
-- [ ] Task retry mechanism
+- [ ] Enhanced retry mechanism with exponential backoff
 - [ ] Dead letter queue
-- [ ] Metrics and monitoring
+- [ ] Metrics and monitoring (Prometheus)
 - [ ] REST API
 - [ ] gRPC support
 - [ ] Task dependencies
