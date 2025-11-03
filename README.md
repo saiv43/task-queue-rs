@@ -26,9 +26,11 @@ make docker-run
 ## Features
 
 - **Asynchronous Processing**: Built on Tokio for efficient async task execution
+- **Priority Queue**: Support for task priorities (Low, Normal, High, Critical)
 - **In-Memory Queue**: Fast in-memory task queue (base implementation)
 - **Worker Pool**: Configurable worker pool for concurrent task processing
 - **Graceful Shutdown**: Signal handling (SIGTERM/SIGINT) with configurable timeout
+- **Configuration Files**: Load settings from YAML/TOML files or environment variables
 - **Task Persistence**: Pluggable storage backends
 - **Type-Safe**: Leverages Rust's type system for safe task handling
 - **Extensible**: Easy to add new storage backends and task types
@@ -217,7 +219,39 @@ async fn main() {
     queue.enqueue(task).await.unwrap();
     
     // Start processing
-  
+    worker_pool.start(queue).await;
+}
+```
+
+### Using Task Priorities
+
+```rust
+use task_queue_rs::{Priority, Task, TaskPayload};
+
+// Create tasks with different priorities
+let background = Task::new(cleanup_payload)
+    .with_priority(Priority::Low);
+
+let user_request = Task::new(api_payload)
+    .with_priority(Priority::High);
+
+let urgent = Task::new(critical_payload)
+    .with_priority(Priority::Critical);
+
+// Enqueue in any order
+queue.enqueue(background).await.unwrap();
+queue.enqueue(user_request).await.unwrap();
+queue.enqueue(urgent).await.unwrap();
+
+// Tasks dequeued by priority: Critical -> High -> Low
+```
+
+### Priority Levels
+
+- **Critical** - Urgent, time-sensitive operations
+- **High** - User-facing requests, important operations  
+- **Normal** - Default priority for most tasks
+- **Low** - Background jobs, cleanup, maintenance
 
 ## Roadmap
 

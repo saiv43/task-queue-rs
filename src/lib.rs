@@ -16,7 +16,7 @@ pub mod worker;
 
 pub use config::Config;
 pub use queue::memory::MemoryQueue;
-pub use task::{Task, TaskPayload, TaskStatus};
+pub use task::{Priority, Task, TaskPayload, TaskStatus};
 pub use worker::pool::WorkerPool;
 
 use thiserror::Error;

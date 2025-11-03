@@ -2,7 +2,7 @@ use task_queue_rs::{
     config::Config,
     queue::memory::MemoryQueue,
     queue::Queue,
-    task::{Task, TaskPayload, TaskStatus},
+    task::{Priority, Task, TaskPayload, TaskStatus},
 };
 
 #[tokio::test]
@@ -90,4 +90,194 @@ async fn test_config_validation() {
     config.worker_count = 4;
     config.max_queue_size = 0;
     assert!(config.validate().is_err());
+}
+
+#[tokio::test]
+async fn test_priority_queue_ordering() {
+    let queue = MemoryQueue::new();
+
+    // Enqueue tasks in mixed priority order
+    let low_task = Task::new(TaskPayload::new(
+        "low_priority".to_string(),
+        serde_json::json!({"priority": "low"}),
+    ))
+    .with_priority(Priority::Low);
+
+    let normal_task = Task::new(TaskPayload::new(
+        "normal_priority".to_string(),
+        serde_json::json!({"priority": "normal"}),
+    ))
+    .with_priority(Priority::Normal);
+
+    let high_task = Task::new(TaskPayload::new(
+        "high_priority".to_string(),
+        serde_json::json!({"priority": "high"}),
+    ))
+    .with_priority(Priority::High);
+
+    let critical_task = Task::new(TaskPayload::new(
+        "critical_priority".to_string(),
+        serde_json::json!({"priority": "critical"}),
+    ))
+    .with_priority(Priority::Critical);
+
+    // Enqueue in non-priority order: low, critical, normal, high
+    queue.enqueue(low_task).await.unwrap();
+    queue.enqueue(critical_task).await.unwrap();
+    queue.enqueue(normal_task).await.unwrap();
+    queue.enqueue(high_task).await.unwrap();
+
+    assert_eq!(queue.size().await, 4);
+
+    // Dequeue should return in priority order: Critical, High, Normal, Low
+    let task1 = queue.dequeue().await.unwrap();
+    assert_eq!(task1.priority, Priority::Critical);
+    assert_eq!(task1.payload.task_type, "critical_priority");
+
+    let task2 = queue.dequeue().await.unwrap();
+    assert_eq!(task2.priority, Priority::High);
+    assert_eq!(task2.payload.task_type, "high_priority");
+
+    let task3 = queue.dequeue().await.unwrap();
+    assert_eq!(task3.priority, Priority::Normal);
+    assert_eq!(task3.payload.task_type, "normal_priority");
+
+    let task4 = queue.dequeue().await.unwrap();
+    assert_eq!(task4.priority, Priority::Low);
+    assert_eq!(task4.payload.task_type, "low_priority");
+
+    assert_eq!(queue.size().await, 0);
+}
+
+#[tokio::test]
+async fn test_priority_queue_fifo_within_same_priority() {
+    let queue = MemoryQueue::new();
+
+    // Enqueue multiple tasks with the same priority
+    for i in 0..5 {
+        let task = Task::new(TaskPayload::new(
+            format!("task_{}", i),
+            serde_json::json!({"index": i}),
+        ))
+        .with_priority(Priority::High);
+        queue.enqueue(task).await.unwrap();
+    }
+
+    // Should dequeue in FIFO order (0, 1, 2, 3, 4)
+    for i in 0..5 {
+        let task = queue.dequeue().await.unwrap();
+        assert_eq!(task.payload.task_type, format!("task_{}", i));
+        assert_eq!(task.priority, Priority::High);
+    }
+}
+
+#[tokio::test]
+async fn test_priority_queue_mixed_priorities_fifo() {
+    let queue = MemoryQueue::new();
+
+    // Enqueue: High, Low, High, Low, Critical
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new(
+                "high_1".to_string(),
+                serde_json::json!({}),
+            ))
+            .with_priority(Priority::High),
+        )
+        .await
+        .unwrap();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new("low_1".to_string(), serde_json::json!({})))
+                .with_priority(Priority::Low),
+        )
+        .await
+        .unwrap();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new(
+                "high_2".to_string(),
+                serde_json::json!({}),
+            ))
+            .with_priority(Priority::High),
+        )
+        .await
+        .unwrap();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new("low_2".to_string(), serde_json::json!({})))
+                .with_priority(Priority::Low),
+        )
+        .await
+        .unwrap();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new(
+                "critical_1".to_string(),
+                serde_json::json!({}),
+            ))
+            .with_priority(Priority::Critical),
+        )
+        .await
+        .unwrap();
+
+    // Expected dequeue order: critical_1, high_1, high_2, low_1, low_2
+    assert_eq!(
+        queue.dequeue().await.unwrap().payload.task_type,
+        "critical_1"
+    );
+    assert_eq!(queue.dequeue().await.unwrap().payload.task_type, "high_1");
+    assert_eq!(queue.dequeue().await.unwrap().payload.task_type, "high_2");
+    assert_eq!(queue.dequeue().await.unwrap().payload.task_type, "low_1");
+    assert_eq!(queue.dequeue().await.unwrap().payload.task_type, "low_2");
+}
+
+#[tokio::test]
+async fn test_peek_returns_highest_priority() {
+    let queue = MemoryQueue::new();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new("low".to_string(), serde_json::json!({})))
+                .with_priority(Priority::Low),
+        )
+        .await
+        .unwrap();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new(
+                "critical".to_string(),
+                serde_json::json!({}),
+            ))
+            .with_priority(Priority::Critical),
+        )
+        .await
+        .unwrap();
+
+    queue
+        .enqueue(
+            Task::new(TaskPayload::new(
+                "normal".to_string(),
+                serde_json::json!({}),
+            ))
+            .with_priority(Priority::Normal),
+        )
+        .await
+        .unwrap();
+
+    // Peek should return critical without removing it
+    let peeked = queue.peek().await.unwrap();
+    assert_eq!(peeked.payload.task_type, "critical");
+    assert_eq!(peeked.priority, Priority::Critical);
+    assert_eq!(queue.size().await, 3); // Size unchanged
+
+    // Dequeue should also return critical
+    let dequeued = queue.dequeue().await.unwrap();
+    assert_eq!(dequeued.payload.task_type, "critical");
+    assert_eq!(queue.size().await, 2);
 }
