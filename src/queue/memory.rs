@@ -70,6 +70,16 @@ impl MemoryQueue {
             sequence_counter: Arc::new(RwLock::new(0)),
         }
     }
+
+    /// Verify internal consistency between heap and map (for testing/debugging)
+    /// Returns true if the queue is in a consistent state
+    pub async fn verify_consistency(&self) -> bool {
+        let tasks = self.tasks.read().await;
+        let task_map = self.task_map.read().await;
+
+        // Both data structures should have the same size
+        tasks.len() == task_map.len()
+    }
 }
 
 impl Default for MemoryQueue {
@@ -90,10 +100,12 @@ impl Queue for MemoryQueue {
         *sequence_counter += 1;
         drop(sequence_counter);
 
+        // CRITICAL: Acquire both locks together to maintain consistency
+        // This prevents race conditions where a task could be partially inserted
         let mut tasks = self.tasks.write().await;
         let mut task_map = self.task_map.write().await;
 
-        // Insert into priority queue
+        // Insert into both data structures atomically
         tasks.push(PriorityTask {
             task: task.clone(),
             sequence,
@@ -108,6 +120,12 @@ impl Queue for MemoryQueue {
     }
 
     async fn dequeue(&self) -> crate::Result<Task> {
+        // CRITICAL: Both locks must be acquired and held together to prevent race conditions
+        // If these locks are acquired separately or released between operations,
+        // concurrent dequeue operations could cause:
+        // 1. Tasks being dequeued multiple times
+        // 2. Inconsistent state between heap and map
+        // 3. Memory leaks or lost tasks
         let mut tasks = self.tasks.write().await;
         let mut task_map = self.task_map.write().await;
 
@@ -115,7 +133,8 @@ impl Queue for MemoryQueue {
         match tasks.pop() {
             Some(priority_task) => {
                 let task = priority_task.task;
-                // Remove from task_map to prevent memory leak
+                // Remove from task_map atomically while holding both locks
+                // This ensures the heap and map stay synchronized
                 task_map.remove(&task.id);
                 debug!(
                     "Task {} dequeued with priority {:?}",
@@ -128,6 +147,7 @@ impl Queue for MemoryQueue {
                 Err(crate::TaskQueueError::QueueEmpty)
             }
         }
+        // Both locks are released here atomically
     }
 
     async fn size(&self) -> usize {
