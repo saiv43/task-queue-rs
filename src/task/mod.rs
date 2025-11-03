@@ -5,6 +5,20 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Priority levels for task execution
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
+pub enum Priority {
+    /// Low priority
+    Low = 0,
+    /// Normal priority
+    #[default]
+    Normal = 1,
+    /// High priority
+    High = 2,
+    /// Critical priority
+    Critical = 3,
+}
+
 /// Represents a task in the queue
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
@@ -13,6 +27,9 @@ pub struct Task {
 
     /// Task payload containing type and data
     pub payload: TaskPayload,
+
+    /// Task priority level
+    pub priority: Priority,
 
     /// Current status of the task
     pub status: TaskStatus,
@@ -75,6 +92,7 @@ impl Task {
         Self {
             id: Uuid::new_v4().to_string(),
             payload,
+            priority: Priority::default(),
             status: TaskStatus::Pending,
             retry_count: 0,
             max_retries: 3,
@@ -91,6 +109,18 @@ impl Task {
         let mut task = Self::new(payload);
         task.max_retries = max_retries;
         task
+    }
+
+    /// Set the priority of the task
+    pub fn with_priority(mut self, priority: Priority) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    /// Set the maximum retry attempts (chainable)
+    pub fn with_max_retries(mut self, max_retries: u32) -> Self {
+        self.max_retries = max_retries;
+        self
     }
 
     /// Mark task as running
