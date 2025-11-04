@@ -80,6 +80,18 @@ impl MemoryQueue {
         // Both data structures should have the same size
         tasks.len() == task_map.len()
     }
+
+    /// Count how many tasks are ready to execute now
+    pub async fn ready_count(&self) -> usize {
+        let tasks = self.tasks.read().await;
+        tasks.iter().filter(|pt| pt.task.is_ready()).count()
+    }
+
+    /// Count how many tasks are scheduled for future execution
+    pub async fn scheduled_count(&self) -> usize {
+        let tasks = self.tasks.read().await;
+        tasks.iter().filter(|pt| !pt.task.is_ready()).count()
+    }
 }
 
 impl Default for MemoryQueue {
@@ -129,24 +141,54 @@ impl Queue for MemoryQueue {
         let mut tasks = self.tasks.write().await;
         let mut task_map = self.task_map.write().await;
 
-        // BinaryHeap::pop() returns the highest priority task in O(log n)
-        match tasks.pop() {
-            Some(priority_task) => {
-                let task = priority_task.task;
-                // Remove from task_map atomically while holding both locks
-                // This ensures the heap and map stay synchronized
-                task_map.remove(&task.id);
-                debug!(
-                    "Task {} dequeued with priority {:?}",
-                    task.id, task.priority
-                );
-                Ok(task)
+        // Temporary storage for tasks that aren't ready yet
+        let mut not_ready = Vec::new();
+
+        // Find the first ready task (respecting priority order)
+        let result = loop {
+            match tasks.pop() {
+                Some(priority_task) => {
+                    // Check if task is ready to execute
+                    if priority_task.task.is_ready() {
+                        let task = priority_task.task;
+                        // Remove from task_map atomically while holding both locks
+                        task_map.remove(&task.id);
+                        debug!(
+                            "Task {} dequeued with priority {:?}",
+                            task.id, task.priority
+                        );
+                        break Ok(task);
+                    } else {
+                        // Task not ready yet, save it to put back
+                        debug!(
+                            "Task {} not ready yet (scheduled for {:?})",
+                            priority_task.task.id, priority_task.task.scheduled_at
+                        );
+                        not_ready.push(priority_task);
+                    }
+                }
+                None => {
+                    // No more tasks in queue
+                    if not_ready.is_empty() {
+                        warn!("Attempted to dequeue from empty queue");
+                        break Err(crate::TaskQueueError::QueueEmpty);
+                    } else {
+                        debug!(
+                            "No ready tasks available, {} scheduled tasks waiting",
+                            not_ready.len()
+                        );
+                        break Err(crate::TaskQueueError::QueueEmpty);
+                    }
+                }
             }
-            None => {
-                warn!("Attempted to dequeue from empty queue");
-                Err(crate::TaskQueueError::QueueEmpty)
-            }
+        };
+
+        // Put back tasks that weren't ready
+        for priority_task in not_ready {
+            tasks.push(priority_task);
         }
+
+        result
         // Both locks are released here atomically
     }
 
