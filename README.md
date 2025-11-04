@@ -27,6 +27,7 @@ make docker-run
 
 - **Asynchronous Processing**: Built on Tokio for efficient async task execution
 - **Priority Queue**: Support for task priorities (Low, Normal, High, Critical)
+- **Task Scheduling**: Schedule tasks for delayed or future execution
 - **In-Memory Queue**: Fast in-memory task queue (base implementation)
 - **Worker Pool**: Configurable worker pool for concurrent task processing
 - **Graceful Shutdown**: Signal handling (SIGTERM/SIGINT) with configurable timeout
@@ -247,6 +248,78 @@ queue.enqueue(urgent).await.unwrap();
 // Tasks dequeued by priority: Critical -> High -> Low
 ```
 
+### Scheduling Tasks
+
+Schedule tasks for delayed or future execution:
+
+```rust
+use chrono::{Duration, Utc};
+use task_queue_rs::{Task, TaskPayload};
+
+// Schedule task for specific time
+let scheduled_time = Utc::now() + Duration::hours(2);
+let task = Task::new(payload)
+    .schedule_at(scheduled_time);
+
+// Schedule task with delay
+let task = Task::new(payload)
+    .schedule_after(Duration::minutes(30));
+
+// Immediate execution (default)
+let task = Task::new(payload); // No scheduling
+
+// Check if task is ready
+if task.is_ready() {
+    // Task can be executed now
+}
+
+// Get time until ready
+if let Some(duration) = task.time_until_ready() {
+    println!("Task ready in {} seconds", duration.num_seconds());
+}
+```
+
+#### Common Scheduling Use Cases
+
+```rust
+// Retry with exponential backoff
+let retry_count = 2u32;
+let retry_task = failed_task
+    .schedule_after(Duration::seconds(2_i64.pow(retry_count)));
+
+// Schedule daily cleanup job
+let tomorrow_midnight = Utc::now()
+    .date_naive()
+    .succ_opt()
+    .unwrap()
+    .and_hms_opt(0, 0, 0)
+    .unwrap()
+    .and_utc();
+let cleanup = Task::new(cleanup_payload)
+    .schedule_at(tomorrow_midnight);
+
+// Rate limiting - defer task by 1 second
+let rate_limited = Task::new(api_call_payload)
+    .schedule_after(Duration::seconds(1));
+
+// Reminder notification (1 hour before event)
+let reminder = Task::new(notification_payload)
+    .schedule_at(event_time - Duration::hours(1));
+
+// Combine priority and scheduling
+let urgent_later = Task::new(payload)
+    .with_priority(Priority::High)
+    .schedule_after(Duration::minutes(5));
+```
+
+#### Scheduling Behavior
+
+- Tasks scheduled in the past execute immediately
+- `dequeue()` only returns tasks that are ready (scheduled_at <= now)
+- Priority ordering is maintained among ready tasks
+- Workers efficiently wait when no tasks are ready (no busy-waiting)
+- Backward compatible - tasks without scheduling work as before
+
 ### Priority Levels
 
 - **Critical** - Urgent, time-sensitive operations
@@ -281,11 +354,12 @@ The codebase includes comprehensive concurrency tests:
 - [x] **Configuration files** - YAML/TOML config with environment variable overrides
 - [x] **Memory leak fixes** - Proper cleanup in MemoryQueue
 - [x] **Race condition fixes** - Thread-safe concurrent operations
+- [x] **Task scheduling** - Delayed and future task execution with `schedule_at()` and `schedule_after()`
 
 ### Planned 🚧
 - [ ] Redis backend support
 - [ ] PostgreSQL backend support
-- [ ] Scheduled/delayed tasks
+- [ ] Recurring/periodic tasks (cron-like scheduling)
 - [ ] Enhanced retry mechanism with exponential backoff
 - [ ] Dead letter queue
 - [ ] Metrics and monitoring (Prometheus)

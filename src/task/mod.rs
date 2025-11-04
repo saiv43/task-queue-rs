@@ -52,6 +52,9 @@ pub struct Task {
     /// Task completion time
     pub completed_at: Option<DateTime<Utc>>,
 
+    /// Scheduled execution time (None means execute immediately)
+    pub scheduled_at: Option<DateTime<Utc>>,
+
     /// Error message if task failed
     pub error: Option<String>,
 }
@@ -100,6 +103,7 @@ impl Task {
             updated_at: now,
             started_at: None,
             completed_at: None,
+            scheduled_at: None,
             error: None,
         }
     }
@@ -158,6 +162,41 @@ impl Task {
     /// Get task age in seconds
     pub fn age_seconds(&self) -> i64 {
         (Utc::now() - self.created_at).num_seconds()
+    }
+
+    /// Schedule task to execute at a specific time
+    pub fn schedule_at(mut self, scheduled_at: DateTime<Utc>) -> Self {
+        self.scheduled_at = Some(scheduled_at);
+        self
+    }
+
+    /// Schedule task to execute after a delay
+    pub fn schedule_after(mut self, delay: chrono::Duration) -> Self {
+        self.scheduled_at = Some(Utc::now() + delay);
+        self
+    }
+
+    /// Check if task is ready to be executed (scheduled time has passed)
+    pub fn is_ready(&self) -> bool {
+        match self.scheduled_at {
+            None => true, // No scheduling, ready immediately
+            Some(scheduled_at) => Utc::now() >= scheduled_at,
+        }
+    }
+
+    /// Get time until task is ready (None if ready now or no schedule)
+    pub fn time_until_ready(&self) -> Option<chrono::Duration> {
+        match self.scheduled_at {
+            None => None,
+            Some(scheduled_at) => {
+                let now = Utc::now();
+                if now >= scheduled_at {
+                    None // Already ready
+                } else {
+                    Some(scheduled_at - now)
+                }
+            }
+        }
     }
 }
 
