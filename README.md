@@ -248,6 +248,31 @@ queue.enqueue(urgent).await.unwrap();
 // Tasks dequeued by priority: Critical -> High -> Low
 ```
 
+### Updating Tasks in Queue
+
+```rust
+use task_queue_rs::{Queue, Task, TaskPayload};
+
+// Enqueue a task
+let mut task = Task::new(payload);
+let task_id = task.id.clone();
+queue.enqueue(task.clone()).await.unwrap();
+
+// Update task properties (priority, scheduling, payload, etc.)
+task.priority = Priority::High;
+task.scheduled_at = Some(Utc::now() + Duration::hours(1));
+queue.update(task).await.unwrap();
+
+// The updated task will be dequeued with new properties
+// Both the priority heap and task map are kept synchronized
+```
+
+**Important Notes:**
+- `update()` maintains consistency between internal data structures
+- Updates affect priority ordering and scheduling
+- Cannot update tasks that have already been dequeued
+- Updates are atomic and thread-safe
+
 ### Scheduling Tasks
 
 Schedule tasks for delayed or future execution:
@@ -355,6 +380,7 @@ The codebase includes comprehensive concurrency tests:
 - [x] **Memory leak fixes** - Proper cleanup in MemoryQueue
 - [x] **Race condition fixes** - Thread-safe concurrent operations
 - [x] **Task scheduling** - Delayed and future task execution with `schedule_at()` and `schedule_after()`
+- [x] **Queue update fix** - Proper synchronization between heap and task_map on updates
 
 ### Planned 🚧
 - [ ] Redis backend support
