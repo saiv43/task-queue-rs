@@ -216,14 +216,58 @@ impl Queue for MemoryQueue {
     }
 
     async fn update(&self, task: Task) -> crate::Result<()> {
+        // CRITICAL: Must update BOTH heap and task_map to maintain consistency
+        // Acquire both locks together to prevent race conditions
+        let mut tasks = self.tasks.write().await;
         let mut task_map = self.task_map.write().await;
 
-        if task_map.contains_key(&task.id) {
-            task_map.insert(task.id.clone(), task);
-            Ok(())
-        } else {
-            Err(crate::TaskQueueError::TaskNotFound(task.id))
+        // Check if task exists
+        if !task_map.contains_key(&task.id) {
+            return Err(crate::TaskQueueError::TaskNotFound(task.id));
         }
+
+        // Get the sequence number from the old task in the heap
+        // We need to maintain the original sequence for FIFO ordering within same priority
+        let mut old_sequence = None;
+        let mut temp_tasks = Vec::new();
+
+        // Remove the old task from heap
+        while let Some(priority_task) = tasks.pop() {
+            if priority_task.task.id == task.id {
+                old_sequence = Some(priority_task.sequence);
+                break;
+            } else {
+                temp_tasks.push(priority_task);
+            }
+        }
+
+        // Put back the tasks we temporarily removed
+        for priority_task in temp_tasks {
+            tasks.push(priority_task);
+        }
+
+        // If we found the task in the heap, re-insert with updated data
+        if let Some(sequence) = old_sequence {
+            tasks.push(PriorityTask {
+                task: task.clone(),
+                sequence,
+            });
+            debug!(
+                "Task {} updated in heap with sequence {}",
+                task.id, sequence
+            );
+        } else {
+            // Task was in task_map but not in heap (shouldn't happen, but handle it)
+            warn!(
+                "Task {} found in task_map but not in heap during update",
+                task.id
+            );
+        }
+
+        // Update task_map
+        task_map.insert(task.id.clone(), task);
+
+        Ok(())
     }
 
     async fn remove(&self, task_id: &str) -> crate::Result<()> {
