@@ -86,6 +86,9 @@ pub enum TaskStatus {
 
     /// Task failed permanently (max retries exceeded)
     Dead,
+
+    /// Task was cancelled before execution
+    Cancelled,
 }
 
 impl Task {
@@ -197,6 +200,22 @@ impl Task {
                 }
             }
         }
+    }
+
+    /// Mark task as cancelled
+    pub fn mark_cancelled(&mut self) {
+        self.status = TaskStatus::Cancelled;
+        self.updated_at = Utc::now();
+    }
+
+    /// Check if task is cancelled
+    pub fn is_cancelled(&self) -> bool {
+        self.status == TaskStatus::Cancelled
+    }
+
+    /// Check if task can be cancelled (only Pending or Scheduled tasks)
+    pub fn can_cancel(&self) -> bool {
+        matches!(self.status, TaskStatus::Pending)
     }
 }
 

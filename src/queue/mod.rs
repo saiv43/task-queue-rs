@@ -37,4 +37,21 @@ pub trait Queue: Send + Sync {
 
     /// Clear all tasks from the queue
     async fn clear(&self) -> crate::Result<()>;
+
+    /// Cancel a task by ID
+    async fn cancel(&self, task_id: &str) -> crate::Result<Task>;
+
+    /// Cancel all tasks matching a predicate
+    async fn cancel_where<F>(&self, predicate: F) -> crate::Result<usize>
+    where
+        F: Fn(&Task) -> bool + Send;
+
+    /// Count active (non-cancelled) tasks
+    async fn active_count(&self) -> usize;
+
+    /// Count cancelled tasks
+    async fn cancelled_count(&self) -> usize;
+
+    /// Check if a task is cancelled
+    async fn is_cancelled(&self, task_id: &str) -> crate::Result<bool>;
 }

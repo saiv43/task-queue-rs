@@ -28,6 +28,7 @@ make docker-run
 - **Asynchronous Processing**: Built on Tokio for efficient async task execution
 - **Priority Queue**: Support for task priorities (Low, Normal, High, Critical)
 - **Task Scheduling**: Schedule tasks for delayed or future execution
+- **Task Cancellation**: Cancel pending or scheduled tasks before execution
 - **In-Memory Queue**: Fast in-memory task queue (base implementation)
 - **Worker Pool**: Configurable worker pool for concurrent task processing
 - **Graceful Shutdown**: Signal handling (SIGTERM/SIGINT) with configurable timeout
@@ -273,6 +274,73 @@ queue.update(task).await.unwrap();
 - Cannot update tasks that have already been dequeued
 - Updates are atomic and thread-safe
 
+### Cancelling Tasks
+
+Cancel tasks that are pending or scheduled:
+
+```rust
+use task_queue_rs::{Queue, Task, TaskStatus};
+
+// Cancel a specific task by ID
+let result = queue.cancel(&task_id).await;
+match result {
+    Ok(cancelled_task) => {
+        assert_eq!(cancelled_task.status, TaskStatus::Cancelled);
+        println!("Task cancelled successfully");
+    }
+    Err(e) => println!("Could not cancel: {}", e),
+}
+
+// Cancel multiple tasks matching criteria
+let cancelled_count = queue.cancel_where(|task| {
+    task.payload.task_type == "background_job"
+}).await.unwrap();
+println!("Cancelled {} tasks", cancelled_count);
+
+// Check cancellation status
+if queue.is_cancelled(&task_id).await.unwrap() {
+    println!("Task is cancelled");
+}
+
+// Get active vs cancelled counts
+let active = queue.active_count().await;
+let cancelled = queue.cancelled_count().await;
+println!("Active: {}, Cancelled: {}", active, cancelled);
+```
+
+#### Common Cancellation Scenarios
+
+```rust
+// User cancels an operation
+queue.cancel(&upload_task_id).await?;
+
+// Cancel all low-priority tasks (rate limiting)
+queue.cancel_where(|task| {
+    task.priority == Priority::Low
+}).await?;
+
+// Cancel old tasks (timeout)
+queue.cancel_where(|task| {
+    task.age_seconds() > 3600  // Older than 1 hour
+}).await?;
+
+// Cancel all tasks for deleted entity
+queue.cancel_where(|task| {
+    task.payload.data["user_id"] == deleted_user_id
+}).await?;
+
+// Graceful shutdown: cancel all pending
+let count = queue.cancel_where(|_| true).await?;
+println!("Cancelled {} tasks during shutdown", count);
+```
+
+**Cancellation Behavior:**
+- Only `Pending` tasks can be cancelled
+- Cancelled tasks are skipped during `dequeue()`
+- Cancelled tasks are automatically removed when encountered
+- `size()` includes cancelled tasks; use `active_count()` for non-cancelled
+- Cancellation is atomic and thread-safe
+
 ### Scheduling Tasks
 
 Schedule tasks for delayed or future execution:
@@ -381,6 +449,7 @@ The codebase includes comprehensive concurrency tests:
 - [x] **Race condition fixes** - Thread-safe concurrent operations
 - [x] **Task scheduling** - Delayed and future task execution with `schedule_at()` and `schedule_after()`
 - [x] **Queue update fix** - Proper synchronization between heap and task_map on updates
+- [x] **Task cancellation** - Cancel pending/scheduled tasks with `cancel()` and `cancel_where()`
 
 ### Planned 🚧
 - [ ] Redis backend support

@@ -144,10 +144,18 @@ impl Queue for MemoryQueue {
         // Temporary storage for tasks that aren't ready yet
         let mut not_ready = Vec::new();
 
-        // Find the first ready task (respecting priority order)
+        // Find the first ready, non-cancelled task (respecting priority order)
         let result = loop {
             match tasks.pop() {
                 Some(priority_task) => {
+                    // Skip cancelled tasks
+                    if priority_task.task.is_cancelled() {
+                        debug!("Task {} is cancelled, skipping", priority_task.task.id);
+                        // Don't put back cancelled tasks, effectively removing them
+                        task_map.remove(&priority_task.task.id);
+                        continue;
+                    }
+
                     // Check if task is ready to execute
                     if priority_task.task.is_ready() {
                         let task = priority_task.task;
@@ -291,5 +299,119 @@ impl Queue for MemoryQueue {
 
         debug!("Queue cleared");
         Ok(())
+    }
+
+    async fn cancel(&self, task_id: &str) -> crate::Result<Task> {
+        // CRITICAL: Must update BOTH heap and task_map
+        let mut tasks = self.tasks.write().await;
+        let mut task_map = self.task_map.write().await;
+
+        // Get the task
+        let mut task = task_map
+            .get(task_id)
+            .ok_or_else(|| crate::TaskQueueError::TaskNotFound(task_id.to_string()))?
+            .clone();
+
+        // Check if task can be cancelled
+        if !task.can_cancel() {
+            return Err(crate::TaskQueueError::Unknown(format!(
+                "Cannot cancel task in status: {:?}",
+                task.status
+            )));
+        }
+
+        // Mark as cancelled
+        task.mark_cancelled();
+
+        // Update in heap
+        let mut old_sequence = None;
+        let mut temp_tasks = Vec::new();
+
+        while let Some(priority_task) = tasks.pop() {
+            if priority_task.task.id == task_id {
+                old_sequence = Some(priority_task.sequence);
+                break;
+            } else {
+                temp_tasks.push(priority_task);
+            }
+        }
+
+        // Put back non-cancelled tasks
+        for priority_task in temp_tasks {
+            tasks.push(priority_task);
+        }
+
+        // Re-insert cancelled task with updated status
+        if let Some(sequence) = old_sequence {
+            tasks.push(PriorityTask {
+                task: task.clone(),
+                sequence,
+            });
+        }
+
+        // Update task_map
+        task_map.insert(task_id.to_string(), task.clone());
+
+        debug!("Task {} cancelled", task_id);
+        Ok(task)
+    }
+
+    async fn cancel_where<F>(&self, predicate: F) -> crate::Result<usize>
+    where
+        F: Fn(&Task) -> bool + Send,
+    {
+        let mut tasks = self.tasks.write().await;
+        let mut task_map = self.task_map.write().await;
+        let mut cancelled_count = 0;
+
+        // Find task IDs to cancel
+        let task_ids_to_cancel: Vec<String> = task_map
+            .iter()
+            .filter(|(_, task)| task.can_cancel() && predicate(task))
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        // Update heap: mark matching tasks as cancelled
+        let mut temp_tasks = Vec::new();
+        while let Some(mut priority_task) = tasks.pop() {
+            if task_ids_to_cancel.contains(&priority_task.task.id) {
+                priority_task.task.mark_cancelled();
+                cancelled_count += 1;
+                debug!("Task {} cancelled by predicate", priority_task.task.id);
+            }
+            temp_tasks.push(priority_task);
+        }
+
+        // Put all tasks back
+        for priority_task in temp_tasks {
+            tasks.push(priority_task);
+        }
+
+        // Update task_map
+        for task_id in &task_ids_to_cancel {
+            if let Some(task) = task_map.get_mut(task_id) {
+                task.mark_cancelled();
+            }
+        }
+
+        Ok(cancelled_count)
+    }
+
+    async fn active_count(&self) -> usize {
+        let task_map = self.task_map.read().await;
+        task_map
+            .values()
+            .filter(|task| !task.is_cancelled())
+            .count()
+    }
+
+    async fn cancelled_count(&self) -> usize {
+        let task_map = self.task_map.read().await;
+        task_map.values().filter(|task| task.is_cancelled()).count()
+    }
+
+    async fn is_cancelled(&self, task_id: &str) -> crate::Result<bool> {
+        let task = self.get(task_id).await?;
+        Ok(task.is_cancelled())
     }
 }
