@@ -208,10 +208,25 @@ impl Queue for MemoryQueue {
     async fn peek(&self) -> crate::Result<Task> {
         let tasks = self.tasks.read().await;
 
-        match tasks.peek() {
-            Some(priority_task) => Ok(priority_task.task.clone()),
-            None => Err(crate::TaskQueueError::QueueEmpty),
+        // Find the first ready, non-cancelled task (same logic as dequeue)
+        // This ensures peek() returns what dequeue() would return
+        for priority_task in tasks.iter() {
+            // Skip cancelled tasks
+            if priority_task.task.is_cancelled() {
+                continue;
+            }
+
+            // Skip unready (scheduled) tasks
+            if !priority_task.task.is_ready() {
+                continue;
+            }
+
+            // Found a ready, non-cancelled task
+            return Ok(priority_task.task.clone());
         }
+
+        // No ready tasks available
+        Err(crate::TaskQueueError::QueueEmpty)
     }
 
     async fn get(&self, task_id: &str) -> crate::Result<Task> {

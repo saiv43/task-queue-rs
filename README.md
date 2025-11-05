@@ -450,6 +450,7 @@ The codebase includes comprehensive concurrency tests:
 - [x] **Task scheduling** - Delayed and future task execution with `schedule_at()` and `schedule_after()`
 - [x] **Queue update fix** - Proper synchronization between heap and task_map on updates
 - [x] **Task cancellation** - Cancel pending/scheduled tasks with `cancel()` and `cancel_where()`
+- [x] **Peek consistency fix** - `peek()` now skips cancelled and unready tasks like `dequeue()`
 
 ### Planned 🚧
 - [ ] Redis backend support
